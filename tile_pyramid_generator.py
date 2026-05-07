@@ -293,49 +293,38 @@ class TilePyramidGenerator:
             crs = src.crs
             
             print(f"Source CRS: {crs}")
-            
-            # Check if already in Web Mercator (EPSG:3857)
-            if crs and (crs.to_epsg() == 3857 or 'EPSG:3857' in crs.to_string()):
-                # Already in Web Mercator - bounds are in meters
-                self.west, self.south, self.east, self.north = bounds.left, bounds.bottom, bounds.right, bounds.top
-                print(f"Source is already EPSG:3857")
-                
-                # Convert meter bounds back to lat/lon for zoom calculations
-                from rasterio.warp import transform_bounds
-                try:
-                    self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = transform_bounds(
-                        CRS.from_epsg(3857),
-                        CRS.from_epsg(4326),
-                        bounds.left, bounds.bottom, bounds.right, bounds.top
-                    )
-                except:
-                    self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = bounds.left, bounds.bottom, bounds.right, bounds.top
-            
-            # Check if in lat/lon (EPSG:4326)
-            elif crs and crs.to_epsg() == 4326:
-                # In lat/lon - keep lat/lon bounds and convert to Web Mercator meters
-                self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = bounds.left, bounds.bottom, bounds.right, bounds.top
-                
-                print(f"Converting EPSG:4326 to EPSG:3857...")
-                from rasterio.warp import transform_bounds
-                try:
-                    self.west, self.south, self.east, self.north = transform_bounds(
-                        CRS.from_epsg(4326),
-                        CRS.from_epsg(3857),
-                        bounds.left, bounds.bottom, bounds.right, bounds.top
-                    )
-                    print(f"Converted bounds (meters): {self.west:.0f}, {self.south:.0f}, {self.east:.0f}, {self.north:.0f}")
-                except Exception as e:
-                    print(f"Warning: Could not convert bounds: {e}")
-                    self.west, self.south, self.east, self.north = bounds.left, bounds.bottom, bounds.right, bounds.top
-                    self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = bounds.left, bounds.bottom, bounds.right, bounds.top
-            
+
+            if crs is None:
+                raise ValueError("Source TIFF has no CRS; cannot generate XYZ tiles reliably")
+
+            from rasterio.warp import transform_bounds
+
+            try:
+                self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = transform_bounds(
+                    crs,
+                    CRS.from_epsg(4326),
+                    bounds.left,
+                    bounds.bottom,
+                    bounds.right,
+                    bounds.top,
+                )
+                self.west, self.south, self.east, self.north = transform_bounds(
+                    crs,
+                    CRS.from_epsg(3857),
+                    bounds.left,
+                    bounds.bottom,
+                    bounds.right,
+                    bounds.top,
+                )
+            except Exception as e:
+                raise ValueError(f"Could not transform source bounds from {crs}: {e}") from e
+
+            if crs.to_epsg() == 3857:
+                print("Source is already EPSG:3857")
             else:
-                # Unknown or other projected CRS
-                print(f"Warning: CRS is {crs}, not EPSG:3857 or EPSG:4326")
-                print(f"   For best results, reproject your raster to EPSG:3857")
-                self.west, self.south, self.east, self.north = bounds.left, bounds.bottom, bounds.right, bounds.top
-                self.west_latlon, self.south_latlon, self.east_latlon, self.north_latlon = bounds.left, bounds.bottom, bounds.right, bounds.top
+                print(f"Converted source bounds from {crs} to EPSG:4326 and EPSG:3857")
+            print(f"Lat/lon bounds: {self.west_latlon:.6f}, {self.south_latlon:.6f}, {self.east_latlon:.6f}, {self.north_latlon:.6f}")
+            print(f"Web Mercator bounds: {self.west:.0f}, {self.south:.0f}, {self.east:.0f}, {self.north:.0f}")
         
         # Calculate zoom levels (using lat/lon bounds)
         self.min_zoom = self._calculate_min_zoom()
