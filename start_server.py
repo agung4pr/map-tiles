@@ -88,7 +88,7 @@ def get_unique_filename(original_filename, folder):
         filepath = os.path.join(folder, new_filename)
         
         if not os.path.exists(filepath):
-            print(f"[UPLOAD] Duplicate detected! Renamed: {original_filename} → {new_filename}")
+            print(f"[UPLOAD] Duplicate detected! Renamed: {original_filename} -> {new_filename}")
             return new_filename
         
         counter += 1
@@ -189,7 +189,7 @@ def generate_pyramid_background(tiff_path, output_dir, max_workers=4, min_zoom=N
         if tiling_progress['should_cancel']:
             print(f"[CANCEL] Generation was stopped by user")
             tiling_progress['status'] = 'cancelled'
-            tiling_progress['message'] = '✓ Generation cancelled'
+            tiling_progress['message'] = 'Generation cancelled'
             tiling_progress['is_cancelling'] = False
         else:
             # Only save metadata if completed normally
@@ -446,7 +446,7 @@ def cancel_generation():
     tiling_progress['should_cancel'] = True
     tiling_progress['is_cancelling'] = True
     tiling_progress['status'] = 'cancelling'
-    tiling_progress['message'] = '⏹️ Cancellation in progress...'
+    tiling_progress['message'] = 'Cancellation in progress...'
     
     # ALSO immediately notify the generator
     with generator_lock:
@@ -526,11 +526,11 @@ if __name__ == '__main__':
     print("[SERVER] WITH IMMEDIATE CANCELLATION")
     print("[SERVER] ====================================")
     print("[SERVER] Features:")
-    print("[SERVER]   ✓ Concurrent upload protection")
-    print("[SERVER]   ✓ Single generation at a time")
-    print("[SERVER]   ✓ IMMEDIATE cancellation")
-    print("[SERVER]   ✓ File locking for safety")
-    print("[SERVER]   ✓ Stress-test resilient")
+    print("[SERVER]   Concurrent upload protection")
+    print("[SERVER]   Single generation at a time")
+    print("[SERVER]   IMMEDIATE cancellation")
+    print("[SERVER]   File locking for safety")
+    print("[SERVER]   Stress-test resilient")
     print("[SERVER] Visit: http://localhost:2000")
     print("[SERVER] ====================================\n")
     app.run(debug=True, host='0.0.0.0', port=2000, use_reloader=False)
