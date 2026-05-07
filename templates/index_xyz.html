@@ -423,6 +423,62 @@
             font-size: 12px;
             z-index: 400;
         }
+
+        .map-controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 500;
+            width: 240px;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+            padding: 10px;
+        }
+
+        .basemap-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+
+        .basemap-toggle button {
+            flex: initial;
+            min-width: 0;
+            padding: 7px 8px;
+            background: #f4f4f4;
+            border: 1px solid #d0d0d0;
+            color: #333;
+        }
+
+        .basemap-toggle button.active {
+            background: #2196F3;
+            border-color: #0b7dda;
+            color: #fff;
+        }
+
+        .overlay-control {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 8px;
+            color: #333;
+            font-size: 12px;
+        }
+
+        .overlay-control input[type="range"] {
+            width: 100%;
+            accent-color: #2196F3;
+        }
+
+        .overlay-control output {
+            min-width: 34px;
+            text-align: right;
+            color: #555;
+            font-variant-numeric: tabular-nums;
+        }
         
         .btn-cancel:disabled {
             background: #ccc;
@@ -549,6 +605,17 @@
         <!-- Map -->
         <div class="map">
             <div id="mapContainer"></div>
+            <div class="map-controls">
+                <div class="basemap-toggle" role="group" aria-label="Base map">
+                    <button type="button" id="streetBaseBtn" class="active" onclick="setBaseMap('street')">Street</button>
+                    <button type="button" id="satelliteBaseBtn" onclick="setBaseMap('satellite')">Satellite</button>
+                </div>
+                <label class="overlay-control">
+                    <span>Raster</span>
+                    <input type="range" id="rasterOpacity" min="0" max="100" value="100" oninput="setRasterOpacity(this.value)">
+                    <output id="rasterOpacityValue">100%</output>
+                </label>
+            </div>
             <div class="zoom-info">
                 <span id="zoomLevel">Zoom: 0</span>
             </div>
@@ -562,6 +629,9 @@
         let map;
         let currentPyramid = null;
         let currentTileLayer = null;
+        let currentBaseLayer = null;
+        let currentBaseMap = 'street';
+        let rasterOpacity = 1;
         let filesList = {};
         let pyramidMonitorInterval = null;
         let uploadXHR = null;  // Store XHR for cancellation
@@ -570,7 +640,7 @@
         function initMap() {
             map = L.map('mapContainer').setView([0, 0], 2);
             
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            currentBaseLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
                 maxZoom: 19,
                 minZoom: 0
@@ -578,6 +648,55 @@
             
             map.on('zoom', updateZoomInfo);
             updateZoomInfo();
+        }
+
+        function createBaseLayer(type) {
+            if (type === 'satellite') {
+                return L.tileLayer(
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                    {
+                        attribution: 'Tiles &copy; Esri',
+                        maxZoom: 19,
+                        minZoom: 0
+                    }
+                );
+            }
+
+            return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19,
+                minZoom: 0
+            });
+        }
+
+        function setBaseMap(type) {
+            currentBaseMap = type;
+
+            if (map) {
+                if (currentBaseLayer) {
+                    map.removeLayer(currentBaseLayer);
+                }
+
+                currentBaseLayer = createBaseLayer(type).addTo(map);
+                if (currentTileLayer) {
+                    currentTileLayer.bringToFront();
+                }
+            }
+
+            document.getElementById('streetBaseBtn')?.classList.toggle('active', type === 'street');
+            document.getElementById('satelliteBaseBtn')?.classList.toggle('active', type === 'satellite');
+        }
+
+        function setRasterOpacity(value) {
+            rasterOpacity = Number(value) / 100;
+            const output = document.getElementById('rasterOpacityValue');
+            if (output) {
+                output.textContent = `${value}%`;
+            }
+
+            if (currentTileLayer) {
+                currentTileLayer.setOpacity(rasterOpacity);
+            }
         }
         
         function updateZoomInfo() {
@@ -1068,9 +1187,11 @@
                         minZoom: metadata.minZoom,
                         maxZoom: metadata.maxZoom,
                         tms: false,
-                        attribution: 'Custom Tiles'
+                        attribution: 'Custom Tiles',
+                        opacity: rasterOpacity
                     }
                 ).addTo(map);
+                currentTileLayer.bringToFront();
                 
                 // Fit bounds
                 const bounds = metadata.bounds;
@@ -1292,11 +1413,6 @@
             setTimeout(() => {
                 checkForActiveGeneration();
             }, 500);
-        });
-        // Initialize
-        window.addEventListener('load', () => {
-            initMap();
-            loadFiles();
         });
     </script>
 </body>
