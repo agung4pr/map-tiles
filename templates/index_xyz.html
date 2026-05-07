@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XYZ Tile Pyramid Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 380px;
+            background: white;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        .sidebar h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section h2 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .upload-area:hover:not(.uploading) {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+        }
+        
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        
+        .upload-area.uploading {
+            cursor: default;
+            background: #f0f8f0;
+            border-color: #4CAF50;
+        }
+        
+        .upload-area p {
+            color: #666;
+            font-size: 13px;
+            margin: 5px 0;
+        }
+        
+        .upload-progress-container {
+            display: none;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .upload-progress-container.active {
+            display: block;
+        }
+        
+        .upload-progress-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .upload-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .upload-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.2s;
+        }
+        
+        .upload-progress-percent {
+            font-size: 12px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .upload-actions {
+            display: none;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .upload-actions.active {
+            display: flex;
+        }
+        
+        .upload-actions button {
+            flex: 1;
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        #fileInput {
+            display: none;
+        }
+        
+        .files-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .file-item {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            transition: all 0.3s;
+        }
+        
+        .file-item:hover {
+            background: #f0f0f0;
+            border-color: #4CAF50;
+            box-shadow: 0 2px 6px rgba(76, 175, 80, 0.2);
+        }
+        
+        .file-item.active {
+            background: #e8f5e9;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+        
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .file-status {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        .status-uploading {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .status-ready {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .status-generating {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .status-cancelling {
+            background: #ffe0b2;
+            color: #e65100;
+            font-weight: 600;
+        }
+        
+        .status-complete {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .status-cancelled {
+            background: #ffccbc;
+            color: #bf360c;
+        }
+        
+        .status-error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .file-meta {
+            font-size: 11px;
+            color: #999;
+            margin: 3px 0;
+        }
+        
+        .progress-container {
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+        
+        .progress-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #eee;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #45a049);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 70px;
+        }
+        
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #45a049;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-cancel {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #e68900;
+        }
+        
+        .btn-info {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #0b7dda;
+        }
+        
+        .btn-secondary {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #da190b;
+        }
+        
+        .map {
+            flex: 1;
+            position: relative;
+            background: #e0e0e0;
+        }
+        
+        #mapContainer {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .no-files {
+            color: #999;
+            font-size: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            max-width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .toast.error {
+            background: #f44336;
+        }
+        
+        .toast.success {
+            background: #4CAF50;
+        }
+        
+        .toast.info {
+            background: #2196F3;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
+        
+        .zoom-info {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 400;
+        }
+        
+        .btn-cancel:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .btn-cancel.cancelling {
+            background: #ccc !important;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .zoom-controls {
+            background: #f5f5f5;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 8px 0;
+        }
+        
+        .zoom-controls-header {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .zoom-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .zoom-row label {
+            font-weight: 500;
+            color: #666;
+            min-width: 70px;
+        }
+        
+        .zoom-input {
+            width: 60px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .zoom-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 3px rgba(76, 175, 80, 0.3);
+        }
+        
+        .tile-estimate {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h1>🗺️ XYZ Tiles</h1>
+            
+            <!-- Upload Section -->
+            <div class="section">
+                <h2>📤 Upload TIFF</h2>
+                <div class="upload-area" id="uploadArea">
+                    <p><strong>Click to upload</strong></p>
+                    <p>or drag and drop</p>
+                    
+                    <!-- Upload Progress - Inside Upload Box -->
+                    <div class="upload-progress-container" id="uploadProgressContainer">
+                        <div class="upload-progress-label">Uploading...</div>
+                        <div class="upload-progress-bar">
+                            <div class="upload-progress-fill" id="uploadProgressFill"></div>
+                        </div>
+                        <div class="upload-progress-percent" id="uploadProgressPercent">0%</div>
+                    </div>
+                    
+                    <!-- Upload Actions - Inside Upload Box -->
+                    <div class="upload-actions" id="uploadActions">
+                        <button class="btn-cancel" onclick="cancelUpload()">Cancel</button>
+                    </div>
+                    
+                    <p style="font-size: 11px; margin-top: 8px;" id="uploadHint">Max 500MB</p>
+                </div>
+                <input type="file" id="fileInput" accept=".tif,.tiff" />
+            </div>
+            
+            <!-- Files Section -->
+            <div class="section">
+                <h2>📁 Your Files</h2>
+                <div id="filesList" class="files-list"></div>
+                <div class="no-files" id="noFiles">No files uploaded yet</div>
+            </div>
+        </div>
+        
+        <!-- Map -->
+        <div class="map">
+            <div id="mapContainer"></div>
+            <div class="zoom-info">
+                <span id="zoomLevel">Zoom: 0</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <script>
+        let map;
+        let currentPyramid = null;
+        let currentTileLayer = null;
+        let filesList = {};
+        let pyramidMonitorInterval = null;
+        let uploadXHR = null;  // Store XHR for cancellation
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('mapContainer').setView([0, 0], 2);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19,
+                minZoom: 0
+            }).addTo(map);
+            
+            map.on('zoom', updateZoomInfo);
+            updateZoomInfo();
+        }
+        
+        function updateZoomInfo() {
+            document.getElementById('zoomLevel').textContent = `Zoom: ${map.getZoom()}`;
+        }
+        
+        // Load files
+        async function loadFiles() {
+            try {
+                const response = await fetch('/api/files');
+                const files = await response.json();
+                filesList = {};
+                files.forEach(f => filesList[f.path] = f);
+                renderFilesList(files);
+            } catch (error) {
+                showToast('Error loading files', 'error');
+            }
+        }
+        
+        // Render files list
+        function renderFilesList(files) {
+            const filesListDiv = document.getElementById('filesList');
+            const noFiles = document.getElementById('noFiles');
+            
+            if (files.length === 0) {
+                filesListDiv.innerHTML = '';
+                noFiles.style.display = 'block';
+                return;
+            }
+            
+            noFiles.style.display = 'none';
+            filesListDiv.innerHTML = files.map(file => `
+                <div class="file-item" id="file-${file.name}">
+                    <div class="file-header">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-status ${getStatusClass(file)}">
+                            ${getStatusText(file)}
+                        </div>
+                    </div>
+                    
+                    <div class="file-meta">
+                        ${file.metadata ? `Zoom: ${file.metadata.minZoom}-${file.metadata.maxZoom}` : 'Zoom: -'}
+                    </div>
+                    
+                    <div class="progress-container" id="progress-${file.name}">
+                        <div class="progress-label">
+                            <span>Generating tiles...</span>
+                            <span id="percent-${file.name}">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="fill-${file.name}"></div>
+                        </div>
+                        <div class="stats">
+                            <span id="stats-${file.name}">Starting...</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Zoom Controls (shown for all files) -->
+                    <div class="zoom-controls" id="zoom-controls-${file.name}">
+                        <div class="zoom-controls-header">
+                            ${file.has_pyramid ? '🔄 Regenerate with different zoom:' : '⚙️ Set zoom levels:'}
+                        </div>
+                        <div class="zoom-row">
+                            <label>Min Zoom</label>
+                            <input type="number" class="zoom-input" id="min-zoom-${file.name}" value="${file.metadata ? file.metadata.minZoom : 0}" min="0" max="24" onchange="updateTileEstimate('${file.name}')">
+                        </div>
+                        <div class="zoom-row">
+                            <label>Max Zoom</label>
+                            <input type="number" class="zoom-input" id="max-zoom-${file.name}" value="${file.metadata ? file.metadata.maxZoom : 20}" min="0" max="24" onchange="updateTileEstimate('${file.name}')">
+                        </div>
+                        <div class="tile-estimate">
+                            <span id="estimate-${file.name}" style="font-size: 12px; color: #666;">
+                                📊 Estimated tiles: <strong>calculating...</strong>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="file-actions">
+                        ${file.has_pyramid ? 
+                            `<button class="btn-info" onclick="viewPyramid('${file.pyramid_dir}')">🗺️ View</button>` 
+                            : ''}
+                        <button class="btn-primary" onclick="generatePyramid('${file.path}')" id="gen-${file.name}">
+                            ${file.has_pyramid ? '🔄 Regenerate' : '⚙️ Generate'}
+                        </button>
+                        <button class="btn-cancel" onclick="cancelGeneration('${file.name}')" style="display:none;" id="cancel-${file.name}">
+                            ⊘ Cancel
+                        </button>
+                        <button class="btn-secondary" onclick="deleteFile('${file.path}')">🗑️ Delete</button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Auto-estimate tiles for each file
+            files.forEach(file => {
+                setTimeout(() => updateTileEstimate(file.name), 100);
+            });
+        }
+        
+        function getStatusClass(file) {
+            if (file.has_pyramid) return 'status-complete';
+            return 'status-ready';
+        }
+        
+        function getStatusText(file) {
+            if (file.has_pyramid) return '✓ Ready';
+            return '◯ Ready';
+        }
+        
+        // Update tile estimate when zoom changes
+        async function updateTileEstimate(filename) {
+            try {
+                const minZoomEl = document.getElementById(`min-zoom-${filename}`);
+                const maxZoomEl = document.getElementById(`max-zoom-${filename}`);
+                const estimateEl = document.getElementById(`estimate-${filename}`);
+                
+                // Parse zoom values safely - handle empty/NaN cases
+                const minParsed = parseInt(minZoomEl.value);
+                const maxParsed = parseInt(maxZoomEl.value);
+                
+                // Check for NaN (results from empty input)
+                if (isNaN(minParsed) || isNaN(maxParsed)) {
+                    estimateEl.innerHTML = '⚠️ Please enter valid zoom levels (0-24)';
+                    return;
+                }
+                
+                const min_zoom = minParsed;
+                const max_zoom = maxParsed;
+                
+                // Validate inputs
+                if (min_zoom < 0 || max_zoom < 0 || min_zoom > max_zoom || min_zoom > 24 || max_zoom > 24) {
+                    estimateEl.innerHTML = '⚠️ Invalid zoom values (must be 0-24, min ≤ max)';
+                    return;
+                }
+                
+                // Show loading
+                estimateEl.innerHTML = '📊 Estimating tiles...';
+                
+                const response = await fetch('/api/estimate-tiles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        filename: filename,
+                        min_zoom: min_zoom,
+                        max_zoom: max_zoom
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    estimateEl.innerHTML = `⚠️ Error: ${data.error}`;
+                    return;
+                }
+                
+                // Format tile count with thousands separator
+                const tileCount = data.estimated_tiles.toLocaleString();
+                const sizeEstimate = Math.round(data.estimated_tiles * 0.15 / 1024); // ~0.15 MB per tile average
+                
+                let estimate = `📊 Estimated tiles: <strong>${tileCount}</strong><br>`;
+                estimate += `<span style="font-size: 10px; color: #999;">(~${sizeEstimate} MB)</span>`;
+                
+                // Add warning for very low zoom levels
+                if (min_zoom === 0) {
+                    estimate += `<br><span style="font-size: 10px; color: #ff9800; font-weight: 600;">⚠️ Zoom 0: 1 tile (world view)</span>`;
+                } else if (min_zoom <= 3) {
+                    estimate += `<br><span style="font-size: 10px; color: #ff9800;">ℹ️ Low zoom: Limited tiles</span>`;
+                }
+                
+                estimateEl.innerHTML = estimate;
+            } catch (error) {
+                console.error('Estimation error:', error);
+                document.getElementById(`estimate-${filename}`).innerHTML = '⚠️ Estimation failed';
+            }
+        }
+        
+        // Cancel upload
+        function cancelUpload() {
+            if (uploadXHR) {
+                uploadXHR.abort();
+                uploadXHR = null;
+                
+                // Reset upload UI
+                document.getElementById('uploadProgressContainer').classList.remove('active');
+                document.getElementById('uploadActions').classList.remove('active');
+                document.getElementById('uploadHint').style.display = 'block';
+                document.getElementById('uploadArea').classList.remove('uploading');
+                
+                showToast('❌ Upload cancelled', 'error');
+            }
+        }
+        
+        // Cancel generation
+        function cancelGeneration(filename) {
+            if (pyramidMonitorInterval) {
+                clearInterval(pyramidMonitorInterval);
+                pyramidMonitorInterval = null;
+            }
+            
+            // Get cancel button and add visual feedback
+            const cancelBtn = document.getElementById(`cancel-${filename}`);
+            if (cancelBtn) {
+                cancelBtn.disabled = true;
+                cancelBtn.classList.add('cancelling');
+                
+                // Add spinner animation to button
+                const originalText = cancelBtn.textContent;
+                cancelBtn.innerHTML = '<span class="spinner"></span>Cancelling...';
+            }
+            
+            // Show cancellation in progress
+            showToast('⏹️ Requesting cancellation... (please wait)', 'info');
+            
+            // Send cancel request to server
+            fetch('/api/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).then(response => {
+                if (response.ok) {
+                    console.log('[CANCEL] Cancel request sent successfully');
+                    // Resume monitoring to track cancellation progress
+                    monitorPyramidProgress(filename);
+                }
+            }).catch(err => {
+                console.error('Cancel request failed:', err);
+                showToast('Failed to send cancellation request', 'error');
+                // Reset button on error
+                if (cancelBtn) {
+                    cancelBtn.disabled = false;
+                    cancelBtn.classList.remove('cancelling');
+                    cancelBtn.innerHTML = '⏹️ Cancel';
+                }
+            });
+        }
+        
+        // Generate or regenerate pyramid
+        async function generatePyramid(filename) {
+            try {
+                const progressDiv = document.getElementById(`progress-${filename}`);
+                const genBtn = document.getElementById(`gen-${filename}`);
+                const cancelBtn = document.getElementById(`cancel-${filename}`);
+                const zoomDiv = document.getElementById(`zoom-controls-${filename}`);
+                
+                // Check if regenerating (file already has pyramid)
+                const file = filesList[filename];
+                const isRegeneration = file && file.has_pyramid;
+                
+                // If regenerating, confirm with user
+                if (isRegeneration) {
+                    const newZoomMin = parseInt(document.getElementById(`min-zoom-${filename}`).value);
+                    const newZoomMax = parseInt(document.getElementById(`max-zoom-${filename}`).value);
+                    const oldZoomMin = file.metadata.minZoom;
+                    const oldZoomMax = file.metadata.maxZoom;
+                    
+                    // Check if zoom levels are actually different
+                    if (newZoomMin === oldZoomMin && newZoomMax === oldZoomMax) {
+                        showToast('ℹ️ Zoom levels are the same as current pyramid', 'info');
+                        return;
+                    }
+                    
+                    const message = `Regenerate pyramid?\nCurrent: ${oldZoomMin}-${oldZoomMax}\nNew: ${newZoomMin}-${newZoomMax}`;
+                    if (!confirm(message)) {
+                        return;
+                    }
+                }
+                
+                // Get custom zoom levels if provided
+                const minZoomEl = document.getElementById(`min-zoom-${filename}`);
+                const maxZoomEl = document.getElementById(`max-zoom-${filename}`);
+                
+                // Parse zoom values - handle empty/NaN cases
+                let min_zoom = undefined;
+                let max_zoom = undefined;
+                
+                if (minZoomEl && minZoomEl.value !== '') {
+                    const parsed = parseInt(minZoomEl.value);
+                    if (!isNaN(parsed)) {
+                        min_zoom = parsed;
+                    }
+                }
+                
+                if (maxZoomEl && maxZoomEl.value !== '') {
+                    const parsed = parseInt(maxZoomEl.value);
+                    if (!isNaN(parsed)) {
+                        max_zoom = parsed;
+                    }
+                }
+                
+                // Validate zoom levels if actually provided
+                if (min_zoom !== undefined && max_zoom !== undefined) {
+                    if (min_zoom < 0 || max_zoom < 0 || min_zoom > max_zoom || min_zoom > 24 || max_zoom > 24) {
+                        showToast('⚠️ Invalid zoom levels. Min must be 0-24, Max must be 0-24, and Min ≤ Max', 'error');
+                        return;
+                    }
+                } else if (min_zoom !== undefined || max_zoom !== undefined) {
+                    // Both must be provided
+                    if (min_zoom === undefined || max_zoom === undefined) {
+                        showToast('⚠️ Please set both Min and Max zoom levels', 'error');
+                        return;
+                    }
+                }
+                
+                // Show progress and cancel button
+                progressDiv.classList.add('active');
+                if (zoomDiv) zoomDiv.style.display = 'none';  // Hide zoom controls
+                genBtn.style.display = 'none';
+                cancelBtn.style.display = 'inline-flex';
+                
+                const actionMsg = isRegeneration ? '🔄 Regenerating tiles...' : '🔄 Starting tile generation...';
+                showToast(actionMsg, 'info');
+                
+                const response = await fetch('/api/pyramid', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        filename, 
+                        max_workers: 4,
+                        min_zoom: min_zoom,
+                        max_zoom: max_zoom
+                    })
+                });
+                
+                if (response.ok) {
+                    monitorPyramidProgress(filename);
+                } else {
+                    const error = await response.json();
+                    showToast('Error: ' + error.error, 'error');
+                    progressDiv.classList.remove('active');
+                    if (zoomDiv) zoomDiv.style.display = 'block';
+                    genBtn.style.display = 'inline-flex';
+                    cancelBtn.style.display = 'none';
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Monitor pyramid generation
+        async function monitorPyramidProgress(filename) {
+            if (pyramidMonitorInterval) clearInterval(pyramidMonitorInterval);
+            
+            pyramidMonitorInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/progress');
+                    const progress = await response.json();
+                    
+                    const fileItem = document.getElementById(`file-${filename}`);
+                    const statusBadge = document.querySelector(`#file-${filename} .file-status`);
+                    const cancelBtn = document.getElementById(`cancel-${filename}`);
+                    
+                    // Update status badge
+                    if (statusBadge) {
+                        statusBadge.textContent = progress.is_cancelling ? '⏹️ Cancelling...' : '🔄 Generating...';
+                        statusBadge.className = 'file-status ' + (progress.is_cancelling ? 'status-cancelling' : 'status-generating');
+                    }
+                    
+                    // Disable cancel button while cancelling
+                    if (cancelBtn) {
+                        cancelBtn.disabled = progress.is_cancelling;
+                    }
+                    
+                    if (progress.total > 0) {
+                        const percent = Math.round((progress.current / progress.total) * 100);
+                        const progressBar = document.getElementById(`fill-${filename}`);
+                        const progressPercent = document.getElementById(`percent-${filename}`);
+                        const stats = document.getElementById(`stats-${filename}`);
+                        
+                        if (progressBar) {
+                            progressBar.style.width = percent + '%';
+                        }
+                        if (progressPercent) {
+                            progressPercent.textContent = percent + '%';
+                        }
+                        if (stats) {
+                            stats.textContent = `${progress.current} / ${progress.total} tiles`;
+                        }
+                    }
+                    
+                    if (progress.status === 'complete') {
+                        clearInterval(pyramidMonitorInterval);
+                        const genBtn = document.getElementById(`gen-${filename}`);
+                        const cancelBtn = document.getElementById(`cancel-${filename}`);
+                        const zoomDiv = document.getElementById(`zoom-controls-${filename}`);
+                        
+                        if (statusBadge) {
+                            statusBadge.textContent = '✓ Ready';
+                            statusBadge.className = 'file-status status-complete';
+                        }
+                        if (genBtn) {
+                            genBtn.style.display = 'inline-flex';
+                            genBtn.innerHTML = '🔄 Regenerate';  // Update button text to Regenerate
+                        }
+                        if (cancelBtn) {
+                            cancelBtn.style.display = 'none';
+                            cancelBtn.disabled = false;
+                            cancelBtn.classList.remove('cancelling');
+                            cancelBtn.innerHTML = '⏹️ Cancel';
+                        }
+                        if (zoomDiv) zoomDiv.style.display = 'block';  // Show zoom controls for regeneration
+                        
+                        showToast('✅ Pyramid generation complete!', 'success');
+                        document.getElementById(`progress-${filename}`).classList.remove('active');
+                        
+                        // Auto-refresh file list after generation completes
+                        console.log('[GENERATION] Refreshing file list...');
+                        setTimeout(() => {
+                            loadFiles();
+                            console.log('[GENERATION] File list refreshed!');
+                        }, 1000);
+                    } else if (progress.status === 'cancelled') {
+                        clearInterval(pyramidMonitorInterval);
+                        const genBtn = document.getElementById(`gen-${filename}`);
+                        const cancelBtn = document.getElementById(`cancel-${filename}`);
+                        const zoomDiv = document.getElementById(`zoom-controls-${filename}`);
+                        
+                        if (statusBadge) {
+                            statusBadge.textContent = '◯ Cancelled';
+                            statusBadge.className = 'file-status status-cancelled';
+                        }
+                        if (genBtn) {
+                            genBtn.style.display = 'inline-flex';
+                            // Check if file has pyramid to determine button text
+                            const file = filesList[filename];
+                            genBtn.innerHTML = file && file.has_pyramid ? '🔄 Regenerate' : '⚙️ Generate';
+                        }
+                        if (cancelBtn) {
+                            cancelBtn.style.display = 'none';
+                            cancelBtn.disabled = false;
+                            cancelBtn.classList.remove('cancelling');
+                            cancelBtn.innerHTML = '⏹️ Cancel';
+                        }
+                        if (zoomDiv) zoomDiv.style.display = 'block';
+                        
+                        showToast('✓ Generation cancelled', 'info');
+                        document.getElementById(`progress-${filename}`).classList.remove('active');
+                    } else if (progress.status === 'error') {
+                        clearInterval(pyramidMonitorInterval);
+                        const genBtn = document.getElementById(`gen-${filename}`);
+                        const cancelBtn = document.getElementById(`cancel-${filename}`);
+                        const zoomDiv = document.getElementById(`zoom-controls-${filename}`);
+                        
+                        if (statusBadge) {
+                            statusBadge.textContent = '✗ Error';
+                            statusBadge.className = 'file-status status-error';
+                        }
+                        if (genBtn) {
+                            genBtn.style.display = 'inline-flex';
+                            // Check if file has pyramid to determine button text
+                            const file = filesList[filename];
+                            genBtn.innerHTML = file && file.has_pyramid ? '🔄 Regenerate' : '⚙️ Generate';
+                        }
+                        if (cancelBtn) {
+                            cancelBtn.style.display = 'none';
+                            cancelBtn.disabled = false;
+                            cancelBtn.classList.remove('cancelling');
+                            cancelBtn.innerHTML = '⏹️ Cancel';
+                        }
+                        if (zoomDiv) zoomDiv.style.display = 'block';
+                        
+                        showToast('❌ Error: ' + progress.message, 'error');
+                        document.getElementById(`progress-${filename}`).classList.remove('active');
+                    }
+                } catch (error) {
+                    clearInterval(pyramidMonitorInterval);
+                }
+            }, 500);
+        }
+        
+        // View pyramid tiles
+        async function viewPyramid(pyramidName) {
+            try {
+                const response = await fetch(`/api/pyramid-info/${pyramidName}`);
+                const metadata = await response.json();
+                
+                if (metadata.error) {
+                    showToast('Pyramid not found', 'error');
+                    return;
+                }
+                
+                // Remove old layer
+                if (currentTileLayer) {
+                    map.removeLayer(currentTileLayer);
+                }
+                
+                // Add new tile layer
+                currentTileLayer = L.tileLayer(
+                    `/tiles/${pyramidName}/{z}/{x}/{y}.png`,
+                    {
+                        minZoom: metadata.minZoom,
+                        maxZoom: metadata.maxZoom,
+                        tms: false,
+                        attribution: 'Custom Tiles'
+                    }
+                ).addTo(map);
+                
+                // Fit bounds
+                const bounds = metadata.bounds;
+                map.fitBounds([
+                    [bounds[1], bounds[0]],  // SW
+                    [bounds[3], bounds[2]]   // NE
+                ], { padding: [50, 50] });
+                
+                showToast(`📍 Loaded: Zoom ${metadata.minZoom}-${metadata.maxZoom}`, 'success');
+                
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Delete file
+        async function deleteFile(filename) {
+            if (!confirm('Delete this file and all tiles?')) return;
+            
+            try {
+                const response = await fetch(`/api/delete/${filename}`, { 
+                    method: 'DELETE' 
+                });
+                
+                if (response.ok) {
+                    showToast('✓ Deleted', 'success');
+                    loadFiles();
+                    if (currentTileLayer) {
+                        map.removeLayer(currentTileLayer);
+                        currentTileLayer = null;
+                    }
+                    map.setView([0, 0], 2);
+                } else {
+                    showToast('Error deleting file', 'error');
+                }
+            } catch (error) {
+                showToast('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // File upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => {
+            handleFileSelect(e.target.files);
+        });
+        
+        async function handleFileSelect(files) {
+            if (files.length === 0) return;
+            
+            const file = files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                // Show upload progress UI
+                const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+                const uploadActions = document.getElementById('uploadActions');
+                const uploadHint = document.getElementById('uploadHint');
+                
+                uploadProgressContainer.classList.add('active');
+                uploadActions.classList.add('active');
+                uploadHint.style.display = 'none';
+                uploadArea.classList.add('uploading');
+                
+                uploadXHR = new XMLHttpRequest();
+                
+                uploadXHR.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = Math.round((e.loaded / e.total) * 100);
+                        const progressFill = document.getElementById('uploadProgressFill');
+                        const progressPercent = document.getElementById('uploadProgressPercent');
+                        
+                        if (progressFill) {
+                            progressFill.style.width = percentComplete + '%';
+                        }
+                        if (progressPercent) {
+                            progressPercent.textContent = percentComplete + '%';
+                        }
+                    }
+                });
+                
+                uploadXHR.addEventListener('load', async () => {
+                    uploadXHR = null;
+                    
+                    if (uploadXHR?.status === 200 || (uploadXHR === null)) {
+                        showToast(`✓ Uploaded: ${file.name}`, 'success');
+                        
+                        // Reset upload UI immediately
+                        uploadProgressContainer.classList.remove('active');
+                        uploadActions.classList.remove('active');
+                        uploadHint.style.display = 'block';
+                        uploadArea.classList.remove('uploading');
+                        fileInput.value = '';
+                        
+                        // Auto-refresh file list after upload completes
+                        console.log('[UPLOAD] Refreshing file list...');
+                        await new Promise(resolve => setTimeout(resolve, 500));  // Wait 500ms for server to finalize
+                        await loadFiles();
+                        console.log('[UPLOAD] File list refreshed!');
+                    } else {
+                        const data = JSON.parse(uploadXHR?.responseText || '{"error":"Upload failed"}');
+                        showToast('Error: ' + (data.error || 'Upload failed'), 'error');
+                        
+                        // Reset upload UI
+                        uploadProgressContainer.classList.remove('active');
+                        uploadActions.classList.remove('active');
+                        uploadHint.style.display = 'block';
+                        uploadArea.classList.remove('uploading');
+                    }
+                });
+                
+                uploadXHR.addEventListener('error', () => {
+                    uploadXHR = null;
+                    showToast('Upload error', 'error');
+                    
+                    // Reset upload UI
+                    uploadProgressContainer.classList.remove('active');
+                    uploadActions.classList.remove('active');
+                    uploadHint.style.display = 'block';
+                    uploadArea.classList.remove('uploading');
+                });
+                
+                uploadXHR.addEventListener('abort', () => {
+                    uploadXHR = null;
+                    
+                    // Reset upload UI
+                    uploadProgressContainer.classList.remove('active');
+                    uploadActions.classList.remove('active');
+                    uploadHint.style.display = 'block';
+                    uploadArea.classList.remove('uploading');
+                });
+                
+                uploadXHR.open('POST', '/api/upload');
+                uploadXHR.send(formData);
+                
+            } catch (error) {
+                showToast('Upload error: ' + error.message, 'error');
+            }
+        }
+        
+        // Toast notifications
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => toast.remove(), 4000);
+        }
+        
+        // Initialize
+        // Check if generation is running on backend and sync UI
+        async function checkForActiveGeneration() {
+            try {
+                const response = await fetch("/api/progress");
+                const progress = await response.json();
+                
+                if (progress.status === "processing" && progress.filename) {
+                    console.log("[RECOVERY] Generation detected on backend:", progress.filename);
+                    showToast("🔄 Resuming generation monitoring...", "info");
+                    
+                    const filename = progress.filename;
+                    const fileItem = document.getElementById(`file-${filename}`);
+                    
+                    if (fileItem) {
+                        const progressDiv = document.getElementById(`progress-${filename}`);
+                        const genBtn = document.getElementById(`gen-${filename}`);
+                        const cancelBtn = document.getElementById(`cancel-${filename}`);
+                        
+                        if (progressDiv) {
+                            progressDiv.classList.add("active");
+                            const percent = progress.current > 0 && progress.total > 0 
+                                ? Math.round((progress.current / progress.total) * 100)
+                                : 0;
+                            
+                            const progressBar = document.getElementById(`fill-${filename}`);
+                            const progressPercent = document.getElementById(`percent-${filename}`);
+                            const stats = document.getElementById(`stats-${filename}`);
+                            
+                            if (progressBar) progressBar.style.width = percent + "%";
+                            if (progressPercent) progressPercent.textContent = percent + "%";
+                            if (stats) stats.textContent = `${progress.current} / ${progress.total} tiles`;
+                        }
+                        
+                        if (genBtn) genBtn.style.display = "none";
+                        if (cancelBtn) cancelBtn.style.display = "inline-flex";
+                        
+                        monitorPyramidProgress(filename);
+                        
+                        console.log("[RECOVERY] UI synchronized with backend generation");
+                    }
+                }
+            } catch (error) {
+                console.error("[RECOVERY] Error checking generation state:", error);
+            }
+        }
+        
+        // Initialize
+        window.addEventListener("load", () => {
+            initMap();
+            loadFiles();
+            
+            // Check if generation is in progress on page load
+            setTimeout(() => {
+                checkForActiveGeneration();
+            }, 500);
+        });
+        // Initialize
+        window.addEventListener('load', () => {
+            initMap();
+            loadFiles();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tile Inspector</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        
+        .controls {
+            background: #252526;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e42;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        label {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select {
+            background: #3e3e42;
+            color: #d4d4d4;
+            border: 1px solid #555;
+            padding: 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .panel {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        
+        .panel h2 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        
+        #tileImage {
+            width: 100%;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .info-block {
+            background: #1e1e1e;
+            border-left: 3px solid #4CAF50;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .info-block strong {
+            color: #4CAF50;
+        }
+        
+        .histogram {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            height: 200px;
+            position: relative;
+        }
+        
+        #histogramCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .error {
+            color: #f48771;
+            background: #3e1f1a;
+            border: 1px solid #8b4a47;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .success {
+            color: #89d185;
+            background: #1f3f1a;
+            border: 1px solid #488b47;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .status {
+            font-size: 11px;
+            color: #858585;
+            padding: 5px;
+            background: #1e1e1e;
+            border-radius: 4px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Tile Inspector</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Pyramid Name:</label>
+                <input type="text" id="pyramidName" value="res" placeholder="e.g., res">
+            </div>
+            <div class="control-group">
+                <label>Zoom Level:</label>
+                <input type="number" id="zoomLevel" value="15" min="0" max="28">
+            </div>
+            <div class="grid">
+                <div class="control-group">
+                    <label>X Coordinate:</label>
+                    <input type="number" id="xCoord" value="25640" min="0">
+                </div>
+                <div class="control-group">
+                    <label>Y Coordinate:</label>
+                    <input type="number" id="yCoord" value="17088" min="0">
+                </div>
+            </div>
+            <button onclick="inspectTile()">Inspect Tile</button>
+        </div>
+        
+        <div id="message"></div>
+        
+        <div class="content">
+            <!-- Left Panel: Tile Preview -->
+            <div class="panel">
+                <h2>Tile Preview</h2>
+                <img id="tileImage" alt="Tile preview" style="display: none;">
+                <div id="imageStatus" class="status">Ready to load tile</div>
+            </div>
+            
+            <!-- Right Panel: Analysis -->
+            <div class="panel">
+                <h2>Tile Analysis</h2>
+                
+                <div class="info-block">
+                    <strong>Tile Info:</strong>
+                    <div id="tileInfo">Select a tile to inspect</div>
+                </div>
+                
+                <div class="info-block">
+                    <strong>File Size:</strong>
+                    <div id="fileSize">-</div>
+                </div>
+                
+                <div class="info-block">
+                    <strong>Status:</strong>
+                    <div id="tileStatus">-</div>
+                </div>
+                
+                <h2 style="margin-top: 15px;">Pixel Stats</h2>
+                <div id="pixelStats" class="info-block">Loading...</div>
+                
+                <div class="histogram">
+                    <canvas id="histogramCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Get pixel statistics from image
+        function getPixelStats(imgElement) {
+            const canvas = document.createElement('canvas');
+            canvas.width = imgElement.width;
+            canvas.height = imgElement.height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imgElement, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // Analyze pixels
+            let histogram = {};
+            let hasData = false;
+            let pixelCount = 0;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                
+                if (a > 0) hasData = true;
+                pixelCount++;
+                
+                // Simple luminance for histogram
+                const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                histogram[lum] = (histogram[lum] || 0) + 1;
+            }
+            
+            return {
+                width: canvas.width,
+                height: canvas.height,
+                histogram: histogram,
+                pixelCount: pixelCount,
+                hasAlpha: true
+            };
+        }
+        
+        // Draw histogram
+        function drawHistogram(stats) {
+            const canvas = document.getElementById('histogramCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#1e1e1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (!stats || !stats.histogram) return;
+            
+            const hist = stats.histogram;
+            const values = Object.values(hist);
+            const maxValue = Math.max(...values);
+            
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            const barWidth = canvas.width / 256;
+            
+            for (let i = 0; i < 256; i++) {
+                const value = hist[i] || 0;
+                const height = (value / maxValue) * (canvas.height - 20);
+                const x = i * barWidth;
+                const y = canvas.height - height - 10;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Grid
+            ctx.strokeStyle = '#3e3e42';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 10; i++) {
+                const y = (canvas.height / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+        
+        // Inspect tile
+        async function inspectTile() {
+            const pyramidName = document.getElementById('pyramidName').value;
+            const z = document.getElementById('zoomLevel').value;
+            const x = document.getElementById('xCoord').value;
+            const y = document.getElementById('yCoord').value;
+            
+            const tileUrl = `/tiles/${pyramidName}/${z}/${x}/${y}.png`;
+            
+            document.getElementById('imageStatus').textContent = `Loading: ${tileUrl}`;
+            document.getElementById('message').innerHTML = '';
+            
+            try {
+                const img = new Image();
+                
+                img.onload = function() {
+                    const stats = getPixelStats(img);
+                    
+                    // Display image
+                    const tileImage = document.getElementById('tileImage');
+                    tileImage.src = tileUrl;
+                    tileImage.style.display = 'block';
+                    
+                    // Display info
+                    document.getElementById('tileInfo').innerHTML = `
+                        <strong>z/x/y:</strong> ${z}/${x}/${y}<br>
+                        <strong>Tile URL:</strong> ${tileUrl}<br>
+                        <strong>Image Size:</strong> ${stats.width}x${stats.height} px<br>
+                        <strong>Pixels:</strong> ${stats.pixelCount.toLocaleString()}
+                    `;
+                    
+                    // Pixel stats
+                    const nonZeroValues = Object.keys(stats.histogram).length;
+                    const avgBrightness = Math.round(
+                        Object.entries(stats.histogram).reduce((sum, [val, count]) => 
+                            sum + (parseInt(val) * count), 0
+                        ) / stats.pixelCount
+                    );
+                    
+                    document.getElementById('pixelStats').innerHTML = `
+                        <strong>Brightness:</strong> avg=${avgBrightness}/255<br>
+                        <strong>Unique values:</strong> ${nonZeroValues}<br>
+                        <strong>Data present:</strong> ${stats.hasAlpha ? '✓ Yes' : '✗ No'}<br>
+                        <strong>Analysis:</strong> ${
+                            nonZeroValues === 1 ? 'Uniform color (single value)' :
+                            nonZeroValues < 10 ? 'Very few unique values (possibly no data)' :
+                            nonZeroValues < 100 ? 'Limited color range' :
+                            'Rich color data'
+                        }
+                    `;
+                    
+                    document.getElementById('tileStatus').innerHTML = '✓ Loaded successfully';
+                    document.getElementById('imageStatus').textContent = 'Tile loaded successfully';
+                    
+                    drawHistogram(stats);
+                    
+                    document.getElementById('message').innerHTML = '<div class="success">✓ Tile loaded! Check the preview and stats.</div>';
+                };
+                
+                img.onerror = function() {
+                    document.getElementById('message').innerHTML = `<div class="error">✗ Failed to load tile: ${tileUrl}</div>`;
+                    document.getElementById('tileStatus').innerHTML = '✗ Failed to load';
+                    document.getElementById('imageStatus').textContent = 'Failed to load tile';
+                };
+                
+                img.crossOrigin = 'anonymous';
+                img.src = tileUrl;
+                
+            } catch (e) {
+                document.getElementById('message').innerHTML = `<div class="error">✗ Error: ${e.message}</div>`;
+            }
+        }
+        
+        // Allow Enter key
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') inspectTile();
+        });
+    </script>
+</body>
+</html>
